@@ -1,0 +1,2 @@
+.lame/sessions/a0af1ef5a8be.jsonl
+.lame/sessions/index.json

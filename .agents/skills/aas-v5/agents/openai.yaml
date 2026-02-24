@@ -1,0 +1,5 @@
+interface:
+  display_name: "AAS v5"
+  short_description: "AAS workflow guardrails (ARC+sprints, staging/execution, gating)"
+policy:
+  allow_implicit_invocation: false

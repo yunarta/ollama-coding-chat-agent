@@ -1,0 +1,87 @@
+name: Container CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  container-runtime:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: lamecoder-ci:local
+      HOST_PORT: "8080"
+      CONTAINER_PORT: "8080"
+      DOCKER_BUILDKIT: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build container image
+        run: docker build -t "$IMAGE_NAME" .
+
+      - name: Run tests inside container against mounted workspace
+        run: |
+          cid=$(docker create \
+            --network none \
+            -e PYTHONPATH=/workspace/src \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            "$IMAGE_NAME" \
+            sh -lc 'pytest -q tests')
+          docker start "$cid"
+          code=$(docker wait "$cid")
+          docker logs "$cid"
+          docker rm "$cid"
+          test "$code" = "0"
+
+      - name: Start UI container
+        run: |
+          docker run -d --rm \
+            --name lamecoder-ui \
+            --network host \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            "$IMAGE_NAME"
+
+      - name: Wait for health endpoint
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "http://127.0.0.1:$HOST_PORT/api/health" >/tmp/lamecoder-health.json; then
+              cat /tmp/lamecoder-health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health endpoint did not become ready in time" >&2
+          docker logs lamecoder-ui || true
+          exit 1
+
+      - name: Validate workspace mount and session persistence
+        run: |
+          curl -fsS \
+            -X POST "http://127.0.0.1:$HOST_PORT/api/sessions" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"CI session"}' >/tmp/lamecoder-create.json
+          cat /tmp/lamecoder-create.json
+          cid=$(docker create \
+            --network none \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            "$IMAGE_NAME" \
+            sh -lc 'test -f /workspace/.lame/sessions/index.json && ls -la /workspace/.lame/sessions')
+          docker start "$cid"
+          code=$(docker wait "$cid")
+          docker logs "$cid"
+          docker rm "$cid"
+          test "$code" = "0"
+
+      - name: Show container logs
+        if: always()
+        run: docker logs lamecoder-ui || true
+
+      - name: Stop UI container
+        if: always()
+        run: docker rm -f lamecoder-ui || true

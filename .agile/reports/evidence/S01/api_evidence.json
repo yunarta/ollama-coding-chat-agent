@@ -1,0 +1,66 @@
+{
+  "create_session": {
+    "session": {
+      "id": "a0af1ef5a8be",
+      "title": "New Session",
+      "created_at": "2026-02-24T14:23:30",
+      "updated_at": "2026-02-24T14:23:30",
+      "snippet": "",
+      "pinned": false
+    }
+  },
+  "list_sessions_1": {
+    "sessions": [
+      {
+        "id": "a0af1ef5a8be",
+        "title": "New Session",
+        "created_at": "2026-02-24T14:23:30",
+        "updated_at": "2026-02-24T14:23:30",
+        "snippet": "",
+        "pinned": false
+      }
+    ]
+  },
+  "post_message": {
+    "user": {
+      "id": "049132f554d7",
+      "role": "user",
+      "type": "message",
+      "content": "Hello, test.",
+      "created_at": "2026-02-24T14:23:30"
+    },
+    "assistant": {
+      "id": "8e568215a706",
+      "role": "assistant",
+      "type": "message",
+      "content": "(LLM not configured) Set LAMECODER_OLLAMA_BASE_URL + LAMECODER_MODEL to use your local Ollama server.",
+      "created_at": "2026-02-24T14:23:30"
+    }
+  },
+  "get_session": {
+    "session": {
+      "id": "a0af1ef5a8be",
+      "title": "Hello, test.",
+      "created_at": "2026-02-24T14:23:30",
+      "updated_at": "2026-02-24T14:23:30",
+      "snippet": "(LLM not configured) Set LAMECODER_OLLAMA_BASE_URL + LAMECODER_MODEL to use your local Ollama server.",
+      "pinned": false
+    },
+    "messages": [
+      {
+        "id": "049132f554d7",
+        "role": "user",
+        "type": "message",
+        "content": "Hello, test.",
+        "created_at": "2026-02-24T14:23:30"
+      },
+      {
+        "id": "8e568215a706",
+        "role": "assistant",
+        "type": "message",
+        "content": "(LLM not configured) Set LAMECODER_OLLAMA_BASE_URL + LAMECODER_MODEL to use your local Ollama server.",
+        "created_at": "2026-02-24T14:23:30"
+      }
+    ]
+  }
+}
