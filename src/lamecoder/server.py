@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from . import store
 from . import llm
+from . import tools
 
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -110,12 +111,36 @@ def create_app() -> FastAPI:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+        # Built-in tooling commands for read/write/shell.
+        try:
+            tool_result = tools.parse_tool_command(req.content)
+        except Exception as e:
+            err_msg = store.new_message("assistant", f"(tool error) {e}")
+            store.append_messages(session_id, [err_msg])
+            if stream:
+                async def tool_err_gen() -> AsyncGenerator[str, None]:
+                    yield json.dumps({"type": "done", "assistant": err_msg}, ensure_ascii=False) + "\n"
+                return StreamingResponse(tool_err_gen(), media_type="application/x-ndjson")
+            return JSONResponse({"user": user_msg, "assistant": err_msg}, status_code=200)
+
+        if tool_result is not None:
+            out = tools.format_tool_result(tool_result)
+            assistant_msg = store.new_message("assistant", out)
+            store.append_messages(session_id, [assistant_msg])
+            if stream:
+                async def tool_gen() -> AsyncGenerator[str, None]:
+                    yield json.dumps({"type": "delta", "content": out}, ensure_ascii=False) + "\n"
+                    yield json.dumps({"type": "done", "assistant": assistant_msg}, ensure_ascii=False) + "\n"
+                return StreamingResponse(tool_gen(), media_type="application/x-ndjson")
+            return JSONResponse({"user": user_msg, "assistant": assistant_msg}, status_code=200)
+
         # Load full context (simple, stable). Future: compression.
         messages = store.read_messages(session_id)
 
         system_prompt = (
             "You are LameCoder, a local-first coding agent. "
-            "Be concise, propose a plan before risky actions, and respect the workspace boundary."
+            "Be concise, propose a plan before risky actions, and respect the workspace boundary. "
+            "When user asks read/write/exec actions, mention slash tools: /read /write /sh."
         )
 
         if not stream:
