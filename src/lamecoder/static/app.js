@@ -6,6 +6,9 @@ const $conversation = document.getElementById("conversation");
 const $newBtn = document.getElementById("newSessionBtn");
 const $sendBtn = document.getElementById("sendBtn");
 const $workspaceInfo = document.getElementById("workspaceInfo");
+const $workspaceBanner = document.getElementById("workspaceBanner");
+const $thinkingStatus = document.getElementById("thinkingStatus");
+const $todoStatus = document.getElementById("todoStatus");
 
 marked.setOptions({ breaks: true });
 
@@ -14,6 +17,24 @@ let state = {
   activeSessionId: null,
   messages: [],
 };
+
+
+function setThinkingStatus(text) {
+  if ($thinkingStatus) $thinkingStatus.textContent = `Thinking: ${text}`;
+}
+
+function setTodoStatus(openCount) {
+  if ($todoStatus) $todoStatus.textContent = `Todo: ${openCount} open`;
+}
+
+function estimateTodoCount() {
+  const pending = state.messages
+    .filter((m) => m.role === "assistant")
+    .map((m) => m.content || "")
+    .join("\n")
+    .match(/\b(todo|next|follow-up|follow up|pending)\b/gi);
+  return pending ? Math.min(9, pending.length) : 0;
+}
 
 function fmtTime(iso) {
   if (!iso) return "";
@@ -210,6 +231,7 @@ function renderConversation() {
   for (const m of state.messages) {
     $conversation.appendChild(msgEl(m));
   }
+  setTodoStatus(estimateTodoCount());
 }
 
 function smartScrollToBottom(force = false) {
@@ -230,9 +252,12 @@ async function loadWorkspaceInfo() {
   try {
     const r = await api("/api/health");
     const d = await r.json();
-    $workspaceInfo.textContent = `workspace: ${d.workspace}`;
+    const info = `workspace: ${d.workspace}`;
+    $workspaceInfo.textContent = info;
+    if ($workspaceBanner) $workspaceBanner.textContent = info;
   } catch {
     $workspaceInfo.textContent = "";
+    if ($workspaceBanner) $workspaceBanner.textContent = "workspace: unavailable";
   }
 }
 
@@ -267,6 +292,7 @@ async function createSession() {
 }
 
 async function sendMessage() {
+  if ($sendBtn.disabled) return;
   const text = editor.getText().trimEnd();
   if (!text.trim() || !state.activeSessionId) return;
 
@@ -287,6 +313,7 @@ async function sendMessage() {
   // stream response
   $sendBtn.disabled = true;
   $sendBtn.textContent = "...";
+  setThinkingStatus("running");
 
   try {
     const resp = await api(`/api/sessions/${state.activeSessionId}/messages?stream=true`, {
@@ -343,6 +370,7 @@ async function sendMessage() {
           // refresh sessions list (updated snippet/time/title)
           await refreshSessions();
           smartScrollToBottom(true);
+          setThinkingStatus("idle");
         }
       }
     }
@@ -350,9 +378,11 @@ async function sendMessage() {
     // Show error in the last assistant message
     state.messages[state.messages.length - 1].content = `(error) ${e.message || e}`;
     renderConversation();
+    setThinkingStatus("error");
   } finally {
     $sendBtn.disabled = false;
     $sendBtn.textContent = "Send";
+    editor.focus();
   }
 }
 
@@ -382,15 +412,11 @@ const editorTheme = EditorView.theme({
 
 const sendKeymap = keymap.of([
   {
-    key: "Ctrl-Enter",
+    key: "Mod-Enter",
     run: () => {
       sendMessage();
       return true;
     },
-  },
-  {
-    key: "Ctrl-f",
-    run: () => false,
   },
 ]);
 
@@ -410,6 +436,7 @@ function createFallbackEditor(parent) {
   return {
     getText: () => ta.value,
     setText: (v) => { ta.value = v ?? ""; },
+    focus: () => ta.focus(),
   };
 }
 
@@ -434,6 +461,7 @@ function createCodeMirrorEditor(parent) {
         changes: { from: 0, to: editorView.state.doc.length, insert: v ?? "" },
       });
     },
+    focus: () => editorView.focus(),
   };
 }
 
@@ -452,6 +480,8 @@ $sendBtn.addEventListener("click", sendMessage);
 
 // --- Boot ---
 (async function init() {
+  setThinkingStatus("idle");
+  setTodoStatus(0);
   await loadWorkspaceInfo();
   await refreshSessions();
 
@@ -470,4 +500,6 @@ $sendBtn.addEventListener("click", sendMessage);
   } else {
     await createSession();
   }
+
+  editor.focus();
 })();

@@ -22,12 +22,20 @@
     </aside>
 
     <main class="main">
+      <div class="main-status">
+        <div id="workspaceBanner" class="workspace-banner muted">workspace: -</div>
+        <div class="status-strip" aria-live="polite">
+          <span id="thinkingStatus" class="status-pill">Thinking: idle</span>
+          <span id="todoStatus" class="status-pill">Todo: 0 open</span>
+        </div>
+      </div>
+
       <div id="conversation" class="conversation"></div>
 
       <div class="composer">
         <div id="editor" class="editor"></div>
         <div class="composer-actions">
-          <div class="hint muted">Ctrl+Enter to send • Ctrl+F search</div>
+          <div class="hint muted">Enter = newline • Ctrl/Cmd+Enter atau tombol Send</div>
           <button id="sendBtn" class="btn primary">Send</button>
         </div>
       </div>
